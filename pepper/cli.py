@@ -551,6 +551,8 @@ class PepperCli(object):
         ret_nodes = []
         exit_code = 1
 
+        ret = {'return': [{node:{'ret': 'Minion did not return'} for node in nodes}]}
+
         # keep trying until all expected nodes return
         total_time = 0
         start_time = time.time()
@@ -571,9 +573,7 @@ class PepperCli(object):
 
             responded = set(jid_ret['return'][0].keys()) ^ set(ret_nodes)
             for node in responded:
-                yield None, "{{{}: {}}}".format(
-                    node,
-                    jid_ret['return'][0][node])
+                ret['return'][0][node]['ret'] = jid_ret['return'][0][node]
             ret_nodes = list(jid_ret['return'][0].keys())
 
             if set(ret_nodes) == set(nodes):
@@ -583,8 +583,8 @@ class PepperCli(object):
                 time.sleep(self.seconds_to_wait)
 
         exit_code = exit_code if self.options.fail_if_minions_dont_respond else 0
-        yield exit_code, "{{Failed: {}}}".format(
-            list(set(ret_nodes) ^ set(nodes)))
+
+        return exit_code, ret
 
     def login(self, api):
         login = api.token if self.options.userun else api.login
@@ -650,8 +650,8 @@ class PepperCli(object):
         self.login(api)
 
         if self.options.fail_if_minions_dont_respond:
-            for exit_code, ret in self.poll_for_returns(api, load):  # pragma: no cover
-                yield exit_code, json.dumps(ret, sort_keys=True, indent=4)
+            exit_code, ret = self.poll_for_returns(api, load)
+            yield exit_code, json.dumps(ret, sort_keys=True, indent=4)
         else:
             ret = self.low(api, load)
             exit_code = 0
